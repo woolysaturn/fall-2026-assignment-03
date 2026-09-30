@@ -49,7 +49,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // Creates a new ticket
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const {title, description, status, priority, assignee_id} = req.body;
+        const {title, description, status, assignee_id} = req.body;
 
         // Validate required fields
         // Check if the title is provided
@@ -64,8 +64,8 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
                 title,
                 description: description || null,
                 status: status || 'open',
-                priority: priority || 'medium',
                 assignee_id: assignee_id || null,
+                creator_id: req.user?.id || 1,
             })
             .returningAll()
             .executeTakeFirstOrThrow();
@@ -134,7 +134,6 @@ router.post('/:id/time', async (req: Request, res: Response, next: NextFunction)
         ticket_id: ticketId,
         user_id: user_id || null,
         hours: Number(hours),
-        comment: comment || null,
       })
       .returningAll()
       .executeTakeFirstOrThrow();
