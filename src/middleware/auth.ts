@@ -10,7 +10,6 @@ export function authMiddleware(
   // Get the userId from the request header 'x-user-id'
 
   const bareUserId = req.header('x-user-id');
-  res.locals.userId = bareUserId;
 
   // Check if the userId exists in the request header
   if(!bareUserId) {
@@ -22,7 +21,7 @@ export function authMiddleware(
 
   // EdgeCases: floatinf point, NaN, negative numbers, zero
   if (isNaN(userId) || !Number.isInteger(userId) || userId <= 0){
-    res.status(402).json({ error: 'Unauthorized: Invalid User ID'});
+    res.status(401).json({ error: 'Unauthorized: Invalid User ID'});
     return;
   }
 

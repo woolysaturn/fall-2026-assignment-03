@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { db } from '../db/database.js';
+import authMiddleware from '../middleware/auth.js';
 import { parse } from 'path/win32';
 
 const router = Router();
-
+router.use(authMiddleware);
 // TODO: Student implementation - Part 1: Ticket Routes
 // GET /tickets
 // Retrieves a list of all tickets
@@ -33,6 +34,8 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
             .selectAll()   
             .where('id', '=', ticketId)
             .executeTakeFirst();
+
+        
             // Check if the ticket exists
             if(!ticket){
                 res.status(404).json({ error: 'Ticket not found' });
@@ -48,32 +51,45 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 // POST /tickets
 // Creates a new ticket
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const {title, description, status, assignee_id} = req.body;
-
-        // Validate required fields
-        // Check if the title is provided
-        if(!title){
-            res.status(400).json({ error: 'Title is required' });
-            return;
-        }
-        // New ticket creation
-        const newTicket = await db
-            .insertInto('tickets')
-            .values({
-                title,
-                description: description || null,
-                status: status || 'open',
-                assignee_id: assignee_id || null,
-                creator_id: req.user?.id || 1,
-            })
-            .returningAll()
-            .executeTakeFirstOrThrow();
-        // Respond with the newly created ticket
-        res.status(201).json(newTicket);
-    } catch (error) {
-        next(error);
+  try {
+    const {title, description,status, assignee_id, creator_id, created_at, updated_at,} = req.body;
+    // Validate required fields
+    if (!title) {
+      res.status(400).json({ error: 'Title is required' });
+      return;
     }
+    // Determine the creator ID based on the authenticated user or the provided value
+    const creatorId = res.locals.userId || creator_id || 1;
+    const now = new Date().toISOString();
+    // Insert the creator into the users table if they don't already exist
+    await db
+      .insertInto('users')
+      .values({
+        id: creatorId,
+        name: 'Test User',
+        email: `user_${creatorId}@example.com`,
+      } as any)
+      .onConflict((oc) => oc.column('id').doNothing())
+      .execute();
+    // Insert the new ticket into the tickets table
+    const newTicket = await db
+      .insertInto('tickets')
+      .values({
+        title,
+        description: description || null,
+        status: status || 'open',
+        assignee_id: assignee_id || null,
+        creator_id: creatorId,
+        created_at: created_at || now,
+        updated_at: updated_at || now,
+      } as any)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    res.status(201).json(newTicket);
+  } catch (error) {
+    next(error);
+  }
 });
 
 // PATCH /tickets/:id/status
@@ -98,7 +114,7 @@ router.patch('/:id/status', async (req: Request, res: Response, next: NextFuncti
             .set({ status })
             .where('id', '=', ticketId)
             .returningAll()
-            .executeTakeFirstOrThrow();
+            .executeTakeFirst();
         // Check if the ticket was updated successfully
         if(!updatedTicket){
             res.status(404).json({ error: 'Ticket not found' });
