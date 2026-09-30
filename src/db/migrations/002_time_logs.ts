@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import { sql } from 'kysely';
 import { Kysely } from 'kysely';
 
 // TODO: Student implementation - Part 2: Database Migration for time_logs
@@ -12,9 +12,16 @@ import { Kysely } from 'kysely';
 // The down() method should drop the `time_logs` table.
 
 export async function up(db: Kysely<any>): Promise<void> {
-  // TODO: Student implementation
+  await db.schema
+  .createTable('time_logs')
+  .addColumn('id', 'serial', (col) => col.primaryKey())
+  .addColumn('ticket_id', 'integer', (col) => col.references('tickets.id').onDelete('cascade').notNull())
+  .addColumn('user_id', 'integer', (col) => col.references('users.id').onDelete('cascade').notNull())
+  .addColumn('hours', 'numeric', (col) => col.notNull())
+  .addColumn('logged_at', 'timestamp', (col) => col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull())
+  .execute();
 }
 
 export async function down(db: Kysely<any>): Promise<void> {
-  // TODO: Student implementation
+  await db.schema.dropTable('time_logs').execute();
 }
