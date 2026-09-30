@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import { db } from '../db/database.js';
 import authMiddleware from '../middleware/auth.js';
 import { parse } from 'path/win32';
+import { insertTimeLog, getTotalHoursForTicket } from '../dal/timeLogs.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -132,7 +133,7 @@ router.patch('/:id/status', async (req: Request, res: Response, next: NextFuncti
 router.post('/:id/time', async (req: Request, res: Response, next: NextFunction) => {
     try {
     const ticketId = parseInt(req.params.id, 10);
-    const { hours, comment, user_id } = req.body;
+    const { hours } = req.body;
     
     if (isNaN(ticketId)) {
       res.status(400).json({ error: 'Invalid ticket ID' });
@@ -144,17 +145,8 @@ router.post('/:id/time', async (req: Request, res: Response, next: NextFunction)
       return;
     }
 
-    const newTimeLog = await db
-      .insertInto('time_logs')
-      .values({
-        ticket_id: ticketId,
-        user_id: user_id || null,
-        hours: Number(hours),
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
-
-    res.status(201).json(newTimeLog);
+    const timeLog = await insertTimeLog(ticketId, req.user?.id || null, hours);
+    res.status(201).json(timeLog);
     } catch (error) {
         next(error);
     }
@@ -170,12 +162,12 @@ router.get('/:id/time', async (req: Request, res: Response, next: NextFunction) 
             res.status(400).json({ error: 'Invalid ticket ID' });
             return;
         }
-        const timeLogs = await db
-            .selectFrom('time_logs')
-            .selectAll()
-            .where('ticket_id', '=', ticketId)
-            .execute();
-        res.json(timeLogs);
+        const totalHours = await getTotalHoursForTicket(ticketId);
+        
+        res.status(200).json({
+        ticket_id: ticketId,
+        total_hours: totalHours,
+        });
     } catch (error) {
         next(error);
     }
